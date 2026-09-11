@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------
+ * Design tokens
+ * Light palette lives on :root; dark overrides the same custom properties
+ * under .dark (toggled by next-themes). Semantic colors (success/error/
+ * warning) and the ink-based shadow stay intentionally close between
+ * themes — shadows read as "dark, grounded" in both, never a glow.
+ * ------------------------------------------------------------------- */
+:root {
+  --paper: #f4efe2;
+  --paper-muted: #e9e1cd;
+  --paper-card: #faf7ee;
+  --ink: #1a1712;
+  --ink-soft: #5c5648;
+  --accent: #ffc629;
+  --accent-ink: #1a1712;
+  --success: #2e7d4f;
+  --error: #c1432b;
+  --warning: #b5750f;
+  --shadow-ink: #1a1712;
+  --grain-opacity: 0.05;
+  --grain-opacity-card: 0.07;
+}
+
+.dark {
+  --paper: #17140f;
+  --paper-muted: #201b13;
+  --paper-card: #1f1a13;
+  --ink: #f3ecd9;
+  --ink-soft: #b9ae95;
+  --accent: #ffd24d;
+  --accent-ink: #1a1712;
+  --success: #4fb377;
+  --error: #e8674a;
+  --warning: #e0a53a;
+  --shadow-ink: #000000;
+  --grain-opacity: 0.07;
+  --grain-opacity-card: 0.1;
+}
+
+@theme {
+  --color-paper: var(--paper);
+  --color-paper-muted: var(--paper-muted);
+  --color-paper-card: var(--paper-card);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-warning: var(--warning);
+
+  --font-display: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sharp: 2px;
+  --radius-tight: 8px;
+  --radius-soft: 16px;
+  --radius-pill: 999px;
+
+  --shadow-hard-sm: 3px 3px 0 0 var(--shadow-ink);
+  --shadow-hard: 5px 5px 0 0 var(--shadow-ink);
+  --shadow-hard-lg: 8px 8px 0 0 var(--shadow-ink);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-ink);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Fixed, non-encoded fallback keeps this readable; browsers accept the
+     literal `<`/`>`/`#`/space in data-URI SVGs used this way. */
+  .grain {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: var(--grain-opacity);
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+
+  .grain-card::before {
+    opacity: var(--grain-opacity-card);
+  }
+
+  .dark .grain::before {
+    mix-blend-mode: screen;
+  }
+
+  .press-tactile {
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+
+  .press-tactile:active {
+    transform: translate(3px, 3px);
+    box-shadow: none !important;
+  }
+
+  @keyframes heartbeat {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    25% {
+      transform: scale(1.35);
+    }
+    50% {
+      transform: scale(0.95);
+    }
+    75% {
+      transform: scale(1.15);
+    }
+  }
+
+  .heart-trigger:hover .heart-icon,
+  .heart-trigger:focus-visible .heart-icon {
+    animation: heartbeat 0.6s ease-in-out;
+    color: var(--color-error);
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 320ms ease-out both;
+  }
+}
