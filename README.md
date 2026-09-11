@@ -13,6 +13,7 @@ Next.js ile geliştirilmiş, reklamsız ve hesap gerektirmeyen bir medya indirme
 </p>
 
 ---
+<img width="1920" height="887" alt="image" src="https://github.com/user-attachments/assets/27acc38e-8a9c-480d-95c6-e08f1cf279d5" />
 
 ## 📖 Proje Hakkında
 
