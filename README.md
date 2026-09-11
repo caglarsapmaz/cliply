@@ -1,101 +1,138 @@
-# Cliply
+# Cliply — Ücretsiz Medya İndirici & Dönüştürücü
 
-A free, ad-free media downloader & converter. No ads, no accounts — paste a link, pick a format, get your file.
+> **Yapıştır. Seç. İndir.**
 
-## Tech stack
+Next.js ile geliştirilmiş, reklamsız ve hesap gerektirmeyen bir medya indirme/dönüştürme aracı. Bir video linki yapıştırın, formatı seçin, dosyanızı alın.
 
-- **Next.js 15** (App Router) + **React 19** + **TypeScript** (strict)
-- **Tailwind CSS v4** — custom retro/paper/brutalist design system, no component library, no glassmorphism
-- **next-themes** for System/Light/Dark
-- A hand-rolled i18n layer (EN/TR, English by default) — no i18n framework needed for two languages
-- **zod** for env and request validation
-- **Upstash Redis + `@upstash/ratelimit`** for rate limiting, with an in-memory fallback for local dev
-- All API routes run on the **Edge runtime** — no Node-only APIs, fast cold starts, real streaming
+<p align="left">
+  <img src="https://img.shields.io/badge/Next.js_15-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Edge_Runtime-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Edge Runtime" />
+</p>
 
-## Architecture
+---
 
-Cliply never runs `yt-dlp`/`ffmpeg` itself. That's exactly the kind of long-running, CPU-heavy,
-native-binary work that doesn't fit Vercel's serverless model — so extraction and conversion are
-delegated to a [Cobalt](https://github.com/imputnet/cobalt) instance, an open-source media
-processing API you either self-host (one Docker container) or point at a trusted public instance
-from [instances.cobalt.best](https://instances.cobalt.best).
+## 📖 Proje Hakkında
+
+**Cliply**, kullanıcıların video linklerini yapıştırarak istedikleri formatta medya dosyası indirmelerini sağlayan, tamamen ücretsiz ve reklamsız bir web uygulamasıdır. Hesap oluşturmaya gerek yoktur, sunucu tarafında indirme geçmişi tutulmaz.
+
+## ✨ Özellikler
+
+- 🌍 **Türkçe + İngilizce** — elle yazılmış hafif bir i18n katmanı (varsayılan İngilizce), iki dil için ayrı bir i18n framework'üne ihtiyaç duymadan
+- 🎨 **Retro/paper/brütalist tasarım sistemi** — Tailwind CSS v4 üzerine özel kurulum, hazır component kütüphanesi ya da glassmorphism yok
+- 🌙 **Sistem/Açık/Koyu tema** desteği — `next-themes` ile
+- ⚡ **Edge Runtime** — tüm API rotaları Node.js API'lerine bağımlı olmadan Edge üzerinde çalışır; hızlı soğuk başlangıç ve gerçek streaming
+- 🔐 **Akıllı rate limiting** — Upstash Redis + `@upstash/ratelimit` ile global sliding-window sayaç, yoksa local geliştirme için bellek içi (in-memory) fallback
+- ✅ **Zod ile doğrulama** — hem environment değişkenleri hem de gelen istekler şema üzerinden doğrulanır
+- 🧩 **Genişletilebilir kaynak mimarisi** — yeni bir platform eklemek `MediaSource` arayüzünü uygulamak ve registry'ye kaydetmekten ibaret
+- 🔒 **Gizlilik öncelikli, ücretsiz ve reklamsız** — hesap yok, sunucuda indirme geçmişi yok
+
+## 🛠️ Kullanılan Teknolojiler
+
+| Katman | Tercih |
+|---|---|
+| Framework | Next.js 15 (App Router) |
+| UI | React 19 |
+| Dil | TypeScript (strict) |
+| Stil | Tailwind CSS v4 — özel retro/paper/brütalist tasarım sistemi |
+| Tema | `next-themes` (Sistem/Açık/Koyu) |
+| i18n | Hazır bir framework yerine elle yazılmış hafif i18n katmanı (EN/TR) |
+| Doğrulama | `zod` (env + request validation) |
+| Rate limiting | Upstash Redis + `@upstash/ratelimit`, in-memory fallback ile |
+| Medya işleme | [Cobalt](https://github.com/imputnet/cobalt) — self-hosted ya da güvenilir bir public instance |
+| Çalışma ortamı | Tüm API rotaları **Edge runtime** üzerinde |
+
+## 🏗️ Mimari
+
+Cliply, `yt-dlp`/`ffmpeg` gibi araçları kendi içinde **hiçbir zaman çalıştırmaz.** Bunlar; uzun süren, CPU
+yoğun, native binary gerektiren işler olduğu için Vercel'in serverless modeline uymaz. Bu yüzden
+çıkarma (extraction) ve dönüştürme işlemleri, açık kaynaklı bir medya işleme API'si olan
+[Cobalt](https://github.com/imputnet/cobalt)'a devredilir — tek bir Docker container ile
+self-host edebilir ya da [instances.cobalt.best](https://instances.cobalt.best) üzerinden
+güvenilir bir public instance kullanabilirsiniz.
 
 ```
-Source (src/lib/sources)        →  matches a URL, extracts an id, fetches metadata
-  └── youtube.ts                   (YouTube Data API v3 if configured, oEmbed fallback)
-Conversion (src/lib/conversion) →  hands the canonicalized URL + format/quality to Cobalt
-  └── cobalt-client.ts             gets back a short-lived, single-use tunnel URL
-API routes (src/app/api)        →  /api/metadata, /api/prepare, /api/stream
-  └── /api/stream                  proxy-streams the tunnel URL straight to the browser —
-                                    nothing is ever buffered or written to disk
+Kaynak (src/lib/sources)         →  URL'yi eşler, id çıkarır, metadata getirir
+  └── youtube.ts                    (varsa YouTube Data API v3, yoksa oEmbed fallback)
+Dönüştürme (src/lib/conversion)  →  kanonik URL + format/kalite bilgisini Cobalt'a iletir
+  └── cobalt-client.ts              kısa ömürlü, tek kullanımlık bir tünel URL'i döner
+API rotaları (src/app/api)       →  /api/metadata, /api/prepare, /api/stream
+  └── /api/stream                   tünel URL'ini doğrudan tarayıcıya proxy-stream eder —
+                                     hiçbir şey diske yazılmaz ya da buffer'lanmaz
 ```
 
-Adding a new source (platform) means implementing the `MediaSource` interface in
-`src/lib/sources` and registering it in `src/lib/sources/registry.ts` — nothing else in the
-request flow changes. New formats/qualities follow the same pattern in the source's
-`qualitiesFor()`.
+Yeni bir kaynak (platform) eklemek, `src/lib/sources` içinde `MediaSource` arayüzünü uygulayıp
+`src/lib/sources/registry.ts` dosyasına kaydetmekten ibarettir — istek akışındaki başka hiçbir şey
+değişmez. Yeni format/kaliteler de kaynağın `qualitiesFor()` fonksiyonunda aynı desenle eklenir.
 
-**Without `COBALT_API_URL` set, `/api/prepare` returns a clear `conversion_unavailable` error
-instead of faking a result.** Metadata lookup (thumbnail/title) still works out of the box via
-YouTube's public oEmbed endpoint.
+**`COBALT_API_URL` ayarlanmadığında `/api/prepare`, sahte bir sonuç döndürmek yerine net bir
+`conversion_unavailable` hatası döner.** Metadata sorgusu (thumbnail/başlık) ise YouTube'un public
+oEmbed endpoint'i sayesinde kutudan çıktığı gibi çalışır.
 
-## Local development
+## 🚀 Kurulum
 
 ```bash
+# Bağımlılıkları yükleyin
 npm install
+
+# Ortam değişkenlerini kopyalayın
 cp .env.example .env
-npm run dev
+
+# Yerel olarak çalıştırın
+npm run dev        # http://localhost:3000
 ```
 
-The app runs at `http://localhost:3000`. Metadata lookup works immediately; downloads require
-`COBALT_API_URL` (see `.env.example`).
+Metadata sorgusu hiçbir ek ayar yapmadan çalışır; indirmeler için `COBALT_API_URL` gereklidir
+(bkz. `.env.example`).
 
-## Environment variables
+## ⚙️ Ortam Değişkenleri
 
-See `.env.example` for the full list and where to get each one. Everything is optional except
-that downloads won't work without `COBALT_API_URL`:
+Her değişken hakkında detay ve nereden alınacağı için `.env.example` dosyasına bakın. İndirmeler
+dışında hepsi opsiyoneldir:
 
-| Variable | Required | Purpose |
+| Değişken | Zorunlu mu? | Amaç |
 |---|---|---|
-| `COBALT_API_URL` | for downloads | Your Cobalt instance |
-| `COBALT_API_KEY` | if your instance needs it | Auth header for Cobalt |
-| `YOUTUBE_API_KEY` | no | Adds exact duration to metadata (oEmbed has no duration field) |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | recommended in prod | Durable, multi-instance rate limiting |
-| `NEXT_PUBLIC_SITE_URL` | recommended in prod | Canonical URL / Open Graph tags |
+| `COBALT_API_URL` | indirmeler için evet | Kullanılacak Cobalt instance'ı |
+| `COBALT_API_KEY` | instance gerektiriyorsa | Cobalt için auth header |
+| `YOUTUBE_API_KEY` | hayır | Metadata'ya tam süre (duration) bilgisi ekler (oEmbed'de duration alanı yok) |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | prod için önerilir | Kalıcı, çoklu-instance rate limiting |
+| `NEXT_PUBLIC_SITE_URL` | prod için önerilir | Kanonik URL / Open Graph etiketleri |
 
-## Deploying to Vercel
+## ☁️ Vercel'e Deploy
 
-1. Push this repo, import it in Vercel.
-2. Set the environment variables above in the Vercel project settings.
-3. Deploy. No build config needed — it's a standard Next.js App Router project.
+1. Bu repoyu push'layın ve Vercel'de import edin.
+2. Yukarıdaki ortam değişkenlerini Vercel proje ayarlarında tanımlayın.
+3. Deploy edin — ekstra build config gerekmez, standart bir Next.js App Router projesidir.
 
-## Rate limiting
+## 🛡️ Rate Limiting
 
-`/api/metadata`, `/api/prepare` and `/api/stream` are all rate-limited per IP
-(`src/lib/rate-limit.ts`). With Upstash configured, limits are enforced globally across every
-serverless instance via a sliding-window counter in Redis. Without it, Cliply falls back to an
-in-memory counter that only protects a single running instance — fine for local dev, a
-reasonable-but-imperfect safety net for a single-region production deployment.
+`/api/metadata`, `/api/prepare` ve `/api/stream` rotalarının tümü IP başına rate-limit'lidir
+(`src/lib/rate-limit.ts`). Upstash yapılandırıldığında limitler, Redis üzerinde sliding-window
+sayaç ile tüm serverless instance'lar genelinde uygulanır. Yapılandırılmadığında ise Cliply,
+yalnızca tek bir çalışan instance'ı koruyan bellek içi bir sayaca düşer — local geliştirme için
+yeterli, tek bölgeli bir production deployment için de makul ama kusursuz olmayan bir güvenlik ağı.
 
-## Privacy
+## 🔒 Gizlilik
 
-- No accounts, no server-side download history.
-- `/api/stream` proxy-streams bytes straight through; nothing is ever written to disk, so
-  there's no temp file to clean up.
-- The raw URL a user pastes is never forwarded anywhere — every source reconstructs a
-  canonical URL from the extracted video id before it's used for metadata lookup or
-  conversion, and `/api/stream` only ever proxies back to the origin of the configured
-  Cobalt instance (never an arbitrary host).
-- No Google Analytics or ad-tech trackers.
+- Hesap yok, sunucu tarafında indirme geçmişi yok.
+- `/api/stream`, byte'ları doğrudan proxy-stream eder; hiçbir şey diske yazılmaz, dolayısıyla
+  temizlenmesi gereken bir geçici dosya oluşmaz.
+- Kullanıcının yapıştırdığı ham URL hiçbir yere iletilmez — her kaynak, metadata sorgusu ya da
+  dönüştürme için kullanılmadan önce çıkarılan video id'sinden kanonik bir URL yeniden oluşturur;
+  `/api/stream` da yalnızca yapılandırılmış Cobalt instance'ının origin'ine proxy yapar (asla
+  keyfi bir host'a değil).
+- Google Analytics ya da reklam teknolojisi izleyicisi yok.
 
-## Known limitations (V1)
+## ⚠️ Bilinen Sınırlamalar (V1)
 
-- Only YouTube is supported as a source; the architecture is built to add more without
-  touching the request flow (see Architecture above).
-- No download history — even local (`localStorage`) history was deliberately left out of V1
-  to keep the flow simple, as the spec allows.
-- `Cobalt`'s API has evolved across versions; `src/lib/conversion/cobalt-client.ts` is written
-  against its documented v10+ processing API. If responses stop parsing, check your instance's
-  version against that first.
-- The in-memory rate-limit fallback (used when Upstash isn't configured) doesn't share state
-  across serverless instances — configure Upstash for real production traffic.
+- Şu an için tek desteklenen kaynak YouTube'dur; mimari, istek akışına dokunmadan yeni kaynaklar
+  eklenebilecek şekilde tasarlanmıştır (bkz. Mimari bölümü).
+- İndirme geçmişi yoktur — akışı basit tutmak adına `localStorage` tabanlı yerel geçmiş bile
+  bilinçli olarak V1'e dahil edilmemiştir.
+- Cobalt'ın API'si sürümler arasında değişti; `src/lib/conversion/cobalt-client.ts`, v10+
+  dokümante edilmiş processing API'sine göre yazılmıştır. Yanıtlar parse edilmiyorsa öncelikle
+  instance'ınızın sürümünü buna göre kontrol edin.
+- Upstash yapılandırılmadığında kullanılan bellek içi rate-limit fallback'i, serverless
+  instance'lar arasında state paylaşmaz — gerçek production trafiği için Upstash'i yapılandırın.
