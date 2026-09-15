@@ -42,7 +42,7 @@ const MP3_BITRATE_MAP: Partial<Record<MediaQuality, string>> = {
 // "Sign in to confirm you're not a bot" error on the default "web" client.
 // The android client uses a different auth path that isn't subject to that
 // check as often, and (unlike "web") doesn't need a JS runtime for nsig.
-const YOUTUBE_CLIENT_ARGS = ["--extractor-args", "youtube:player_client=android"];
+const YOUTUBE_CLIENT_ARGS = ["--extractor-args", "youtube:player_client=android,ios,tv"];
 
 function buildArgs(
   canonicalUrl: string,
