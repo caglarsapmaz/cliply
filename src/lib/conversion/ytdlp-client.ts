@@ -39,13 +39,16 @@ const MP3_BITRATE_MAP: Partial<Record<MediaQuality, string>> = {
   "128": "128K",
 };
 
-// Requests from datacenter IPs (Render's included) routinely get YouTube's
-// "Sign in to confirm you're not a bot" error on the default "web" client.
-// The android client uses a different auth path that isn't subject to that
-// check as often, and (unlike "web") doesn't need a JS runtime for nsig.
+// android/ios/tv client spoofing is exactly the workaround pattern YouTube
+// has been cracking down on; it kept failing even with valid cookies. The
+// default "web" client is what a real signed-in browser looks like, but it
+// needs a JS runtime to solve nsig — Node is already in this image, so
+// point yt-dlp at it instead of the deno it expects by default.
 const YOUTUBE_CLIENT_ARGS = [
+  "--js-runtimes",
+  "node",
   "--extractor-args",
-  "youtube:player_client=android,ios,tv",
+  "youtube:player_client=default,android",
   ...(cookiesFilePath ? ["--cookies", cookiesFilePath] : []),
 ];
 
