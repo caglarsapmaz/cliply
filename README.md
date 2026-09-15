@@ -74,6 +74,15 @@ Video hiçbir zaman yeniden encode edilmez — format selector h264 (avc1) kayna
 ve yalnızca remux/mux yapar, bu da küçük bir instance için ucuzdur. Sadece MP3 çıkarımı gerçek
 (ama audio-only, hafif) bir encode işlemi yapar.
 
+**Önemli — YouTube'un bot kontrolü:** Render gibi paylaşımlı cloud sağlayıcıların IP'lerinden
+gelen istekler YouTube tarafından sık sık "Sign in to confirm you're not a bot" hatasıyla
+reddedilir; bu `yt-dlp`'nin `player_client` seçeneğiyle (android/ios/tv client'ları denenir)
+her zaman aşılamaz. Kalıcı bir çözüm için `YTDLP_COOKIES` ortam değişkenine **ayrı, feda
+edilebilir bir hesabın** YouTube oturum çerezlerini (Netscape `cookies.txt` formatında)
+verebilirsiniz — bkz. `.env.example`. Bunu ana hesabınızla yapmayın: otomatik trafik o hesabın
+YouTube tarafından kısıtlanmasına yol açabilir, ayrıca çerezler süreli olduğu için periyodik
+olarak yenilenmesi gerekir.
+
 ## 🚀 Kurulum
 
 Yerelde `PATH`'inizde `yt-dlp` ve `ffmpeg` gerektirir (macOS'ta `brew install yt-dlp ffmpeg`),
@@ -100,6 +109,7 @@ opsiyoneldir:
 |---|---|---|
 | `MAX_CONCURRENT_JOBS` | hayır (varsayılan 2) | Bu instance'ta aynı anda çalışabilecek yt-dlp dönüştürme sayısını sınırlar |
 | `YTDLP_TIMEOUT_MS` | hayır (varsayılan 120000) | Takılı kalan bir yt-dlp sürecini bu süre sonunda sonlandırır |
+| `YTDLP_COOKIES` | hayır (ama pratikte çoğu cloud sağlayıcıda gerekli) | YouTube'un bot kontrolünü aşmak için ayrı bir hesabın `cookies.txt` içeriği — bkz. Mimari bölümü |
 | `YOUTUBE_API_KEY` | hayır | Metadata'ya tam süre (duration) bilgisi ekler (oEmbed'de duration alanı yok) |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | prod için önerilir | Kalıcı, çoklu-instance rate limiting |
 | `NEXT_PUBLIC_SITE_URL` | prod için önerilir | Kanonik URL / Open Graph etiketleri |
@@ -154,3 +164,6 @@ yeterli, tek bölgeli bir production deployment için de makul ama kusursuz olma
 - YouTube değiştikçe çalışmaya devam etmesi için yt-dlp'nin düzenli güncellenmesi gerekir —
   yeni yt-dlp sürümlerini almak için image'ı düzenli olarak rebuild/redeploy edin (ya da
   zamanlanmış bir job ekleyin).
+- `YTDLP_COOKIES` ayarlanmadan Render gibi paylaşımlı cloud IP'lerinde indirmeler YouTube'un
+  bot kontrolüne takılabilir (`conversion_failed`). Bu bir kod hatası değil, YouTube'un
+  datacenter IP'lerine karşı aldığı bir önlem — çözüm için Mimari bölümündeki not'a bakın.

@@ -5,6 +5,7 @@ const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
 const envSchema = z.object({
   MAX_CONCURRENT_JOBS: z.preprocess(emptyToUndefined, z.coerce.number().int().positive().optional()),
   YTDLP_TIMEOUT_MS: z.preprocess(emptyToUndefined, z.coerce.number().int().positive().optional()),
+  YTDLP_COOKIES: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   YOUTUBE_API_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   UPSTASH_REDIS_REST_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
   UPSTASH_REDIS_REST_TOKEN: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
@@ -17,6 +18,7 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse({
   MAX_CONCURRENT_JOBS: process.env.MAX_CONCURRENT_JOBS,
   YTDLP_TIMEOUT_MS: process.env.YTDLP_TIMEOUT_MS,
+  YTDLP_COOKIES: process.env.YTDLP_COOKIES,
   YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY,
   UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
   UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,

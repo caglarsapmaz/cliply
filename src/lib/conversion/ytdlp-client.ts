@@ -4,6 +4,7 @@ import path from "node:path";
 import { ytdlpTimeoutMs } from "@/lib/env";
 import type { MediaFormat, MediaQuality } from "@/types";
 import { tryAcquire, release } from "./concurrency";
+import { cookiesFilePath } from "./cookies";
 import { registerJob } from "./job-store";
 import { makeJobDir, removeJobDir, sweepStaleJobDirs } from "./tmp";
 import { ConversionError, type ConversionResult } from "./types";
@@ -42,7 +43,11 @@ const MP3_BITRATE_MAP: Partial<Record<MediaQuality, string>> = {
 // "Sign in to confirm you're not a bot" error on the default "web" client.
 // The android client uses a different auth path that isn't subject to that
 // check as often, and (unlike "web") doesn't need a JS runtime for nsig.
-const YOUTUBE_CLIENT_ARGS = ["--extractor-args", "youtube:player_client=android,ios,tv"];
+const YOUTUBE_CLIENT_ARGS = [
+  "--extractor-args",
+  "youtube:player_client=android,ios,tv",
+  ...(cookiesFilePath ? ["--cookies", cookiesFilePath] : []),
+];
 
 function buildArgs(
   canonicalUrl: string,
