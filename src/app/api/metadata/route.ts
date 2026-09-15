@@ -7,7 +7,8 @@ import { SourceError } from "@/lib/sources/types";
 import { metadataRequestSchema, parsePublicUrl } from "@/lib/validation";
 import type { MetadataResponse } from "@/types";
 
-export const runtime = "edge";
+// Self-hosted on a single Node container — no cold-start benefit from Edge.
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const rate = await checkRateLimit("metadata", getClientIp(req.headers));

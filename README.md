@@ -10,24 +10,26 @@ A free, ad-free media downloader & converter. No ads, no accounts — paste a li
 - A hand-rolled i18n layer (EN/TR, English by default) — no i18n framework needed for two languages
 - **zod** for env and request validation
 - **Upstash Redis + `@upstash/ratelimit`** for rate limiting, with an in-memory fallback for local dev
-- All API routes run on the **Edge runtime** — no Node-only APIs, fast cold starts, real streaming
+- API routes run on the **Node.js runtime** (required for `yt-dlp`/`ffmpeg` child processes)
 
 ## Architecture
 
-Cliply never runs `yt-dlp`/`ffmpeg` itself. That's exactly the kind of long-running, CPU-heavy,
-native-binary work that doesn't fit Vercel's serverless model — so extraction and conversion are
-delegated to a [Cobalt](https://github.com/imputnet/cobalt) instance, an open-source media
-processing API you either self-host (one Docker container) or point at a trusted public instance
-from [instances.cobalt.best](https://instances.cobalt.best).
+Cliply runs `yt-dlp` (with `ffmpeg` on `PATH` for muxing/encoding) directly, as a child process,
+inside its own container — no external conversion API. That's why it deploys as a Docker web
+service (see below) instead of to a serverless/Edge platform: native binaries and long-running
+child processes don't fit that model.
 
 ```
 Source (src/lib/sources)        →  matches a URL, extracts an id, fetches metadata
   └── youtube.ts                   (YouTube Data API v3 if configured, oEmbed fallback)
-Conversion (src/lib/conversion) →  hands the canonicalized URL + format/quality to Cobalt
-  └── cobalt-client.ts             gets back a short-lived, single-use tunnel URL
-API routes (src/app/api)        →  /api/metadata, /api/prepare, /api/stream
-  └── /api/stream                  proxy-streams the tunnel URL straight to the browser —
-                                    nothing is ever buffered or written to disk
+Conversion (src/lib/conversion) →  spawns yt-dlp for the canonicalized URL + format/quality
+  └── ytdlp-client.ts              writes to a per-job temp dir, registers it in job-store.ts
+  └── job-store.ts                 opaque single-use jobId → temp file path, in-memory, TTL'd
+  └── concurrency.ts               caps how many yt-dlp jobs run at once (MAX_CONCURRENT_JOBS)
+API routes (src/app/api)        →  /api/metadata, /api/prepare, /api/stream, /api/health
+  └── /api/prepare                 runs the yt-dlp job, returns a downloadUrl carrying the jobId
+  └── /api/stream                  streams the temp file to the browser, then deletes it —
+                                    nothing is ever left on disk after a request completes
 ```
 
 Adding a new source (platform) means implementing the `MediaSource` interface in
@@ -35,11 +37,15 @@ Adding a new source (platform) means implementing the `MediaSource` interface in
 request flow changes. New formats/qualities follow the same pattern in the source's
 `qualitiesFor()`.
 
-**Without `COBALT_API_URL` set, `/api/prepare` returns a clear `conversion_unavailable` error
-instead of faking a result.** Metadata lookup (thumbnail/title) still works out of the box via
-YouTube's public oEmbed endpoint.
+Video is never re-encoded — the format selector pins an h264 (avc1) source stream and only
+remuxes/muxes it, which is cheap on a small instance. Only MP3 extraction does real (but
+audio-only, lightweight) encoding.
 
 ## Local development
+
+Requires `yt-dlp` and `ffmpeg` on your `PATH` (`brew install yt-dlp ffmpeg` on macOS), since
+`/api/prepare` spawns them directly — there's no bundled fallback for local dev the way there
+was with a hosted conversion API.
 
 ```bash
 npm install
@@ -47,27 +53,37 @@ cp .env.example .env
 npm run dev
 ```
 
-The app runs at `http://localhost:3000`. Metadata lookup works immediately; downloads require
-`COBALT_API_URL` (see `.env.example`).
+The app runs at `http://localhost:3000`.
 
 ## Environment variables
 
-See `.env.example` for the full list and where to get each one. Everything is optional except
-that downloads won't work without `COBALT_API_URL`:
+See `.env.example` for the full list and where to get each one. Everything is optional:
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `COBALT_API_URL` | for downloads | Your Cobalt instance |
-| `COBALT_API_KEY` | if your instance needs it | Auth header for Cobalt |
+| `MAX_CONCURRENT_JOBS` | no (default 2) | Caps concurrent yt-dlp conversions on this instance |
+| `YTDLP_TIMEOUT_MS` | no (default 120000) | Kills a stuck yt-dlp process after this long |
 | `YOUTUBE_API_KEY` | no | Adds exact duration to metadata (oEmbed has no duration field) |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | recommended in prod | Durable, multi-instance rate limiting |
 | `NEXT_PUBLIC_SITE_URL` | recommended in prod | Canonical URL / Open Graph tags |
 
-## Deploying to Vercel
+## Deploying to Render
 
-1. Push this repo, import it in Vercel.
-2. Set the environment variables above in the Vercel project settings.
-3. Deploy. No build config needed — it's a standard Next.js App Router project.
+Ships as a Docker web service (`Dockerfile` + `render.yaml`), free tier, no VPS management:
+
+1. Push this repo to GitHub.
+2. In Render: **New → Blueprint**, point it at the repo — it reads `render.yaml` and creates the
+   `cliply` web service (Docker runtime, free plan, health check on `/api/health`).
+   - Or manually: **New → Web Service** → connect the repo → Environment: **Docker** → Instance
+     type: **Free** → deploy.
+3. Set the environment variables from the table above in the Render dashboard (the ones marked
+   `sync: false` in `render.yaml` aren't filled in automatically).
+4. Deploy. Render builds the `Dockerfile` (installs `yt-dlp` + `ffmpeg` into the image) and runs it.
+
+**Free tier notes:** the instance spins down after 15 minutes idle (next request pays a cold-start
+penalty), and RAM/CPU are limited — `MAX_CONCURRENT_JOBS` exists specifically to keep the box from
+falling over under concurrent conversions. See the project's own notes on this tradeoff before
+relying on it for real traffic.
 
 ## Rate limiting
 
@@ -80,12 +96,11 @@ reasonable-but-imperfect safety net for a single-region production deployment.
 ## Privacy
 
 - No accounts, no server-side download history.
-- `/api/stream` proxy-streams bytes straight through; nothing is ever written to disk, so
-  there's no temp file to clean up.
+- `/api/prepare` writes the converted file to a per-job temp directory; `/api/stream` streams
+  it straight through and deletes the directory as soon as the request ends (success, error, or
+  client disconnect). A startup sweep also removes any job directory left behind by a crash.
 - The raw URL a user pastes is never forwarded anywhere — every source reconstructs a
-  canonical URL from the extracted video id before it's used for metadata lookup or
-  conversion, and `/api/stream` only ever proxies back to the origin of the configured
-  Cobalt instance (never an arbitrary host).
+  canonical URL from the extracted video id before it's used for metadata lookup or conversion.
 - No Google Analytics or ad-tech trackers.
 
 ## Known limitations (V1)
@@ -94,8 +109,8 @@ reasonable-but-imperfect safety net for a single-region production deployment.
   touching the request flow (see Architecture above).
 - No download history — even local (`localStorage`) history was deliberately left out of V1
   to keep the flow simple, as the spec allows.
-- `Cobalt`'s API has evolved across versions; `src/lib/conversion/cobalt-client.ts` is written
-  against its documented v10+ processing API. If responses stop parsing, check your instance's
-  version against that first.
-- The in-memory rate-limit fallback (used when Upstash isn't configured) doesn't share state
-  across serverless instances — configure Upstash for real production traffic.
+- The job registry, concurrency cap, and in-memory rate-limit fallback are all per-instance —
+  fine for Render's free single-instance plan, but a multi-instance deployment would need the
+  job registry moved into Redis (Upstash is already a dependency for rate limiting).
+- yt-dlp needs periodic updates to keep working as YouTube changes — rebuild/redeploy the image
+  regularly (or add a scheduled job) to pick up new yt-dlp releases.

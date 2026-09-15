@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Docker/Render deploy: traces only the node_modules actually needed
+  // into .next/standalone, keeping the runtime image small.
+  output: "standalone",
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "*.ytimg.com" },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api-response";
 import { base64UrlEncode } from "@/lib/base64url";
-import { requestConversion } from "@/lib/conversion/cobalt-client";
+import { requestConversion } from "@/lib/conversion/ytdlp-client";
 import { ConversionError } from "@/lib/conversion/types";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/request-ip";
@@ -11,7 +11,8 @@ import { SourceError } from "@/lib/sources/types";
 import { parsePublicUrl, prepareRequestSchema } from "@/lib/validation";
 import type { PrepareResponseBody } from "@/types";
 
-export const runtime = "edge";
+// yt-dlp/ffmpeg run as native child processes — unavailable on the Edge runtime.
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const rate = await checkRateLimit("prepare", getClientIp(req.headers));
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       `cliply-${parsedUrl.externalId}`,
       format,
     );
-    const downloadUrl = `/api/stream?u=${base64UrlEncode(result.streamUrl)}&f=${encodeURIComponent(filename)}`;
+    const downloadUrl = `/api/stream?u=${base64UrlEncode(result.jobId)}&f=${encodeURIComponent(filename)}`;
     const body: PrepareResponseBody = { downloadUrl, filename };
     return NextResponse.json(body);
   } catch (err) {

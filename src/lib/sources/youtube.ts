@@ -142,7 +142,7 @@ export const youtubeSource: MediaSource = {
     return {
       externalId,
       // Rebuilt from the extracted ID, never the raw user string — this is
-      // the only URL that ever gets handed to oEmbed/the Data API/Cobalt.
+      // the only URL that ever gets handed to oEmbed/the Data API/yt-dlp.
       canonicalUrl: `https://www.youtube.com/watch?v=${externalId}`,
     };
   },

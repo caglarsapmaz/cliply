@@ -11,7 +11,7 @@ export class ConversionError extends Error {
 }
 
 export interface ConversionResult {
-  /** Short-lived, single-use tunnel URL served by the conversion engine. */
-  streamUrl: string;
+  /** Opaque, single-use id for the completed temp file — see job-store.ts. */
+  jobId: string;
   filename: string;
 }
