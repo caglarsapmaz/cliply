@@ -23,9 +23,12 @@ RUN apk add --no-cache python3 ffmpeg ca-certificates curl \
 
 RUN addgroup -S app && adduser -S app -G app
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=app:app /app/public ./public
+COPY --from=builder --chown=app:app /app/.next/standalone ./
+COPY --from=builder --chown=app:app /app/.next/static ./.next/static
+
+# Next.js writes its ISR/image-optimization cache here at runtime.
+RUN mkdir -p .next/cache && chown app:app .next/cache
 
 USER app
 

@@ -38,6 +38,12 @@ const MP3_BITRATE_MAP: Partial<Record<MediaQuality, string>> = {
   "128": "128K",
 };
 
+// Requests from datacenter IPs (Render's included) routinely get YouTube's
+// "Sign in to confirm you're not a bot" error on the default "web" client.
+// The android client uses a different auth path that isn't subject to that
+// check as often, and (unlike "web") doesn't need a JS runtime for nsig.
+const YOUTUBE_CLIENT_ARGS = ["--extractor-args", "youtube:player_client=android"];
+
 function buildArgs(
   canonicalUrl: string,
   format: MediaFormat,
@@ -47,6 +53,7 @@ function buildArgs(
   if (format === "mp3") {
     return [
       "--no-playlist",
+      ...YOUTUBE_CLIENT_ARGS,
       "-f",
       "bestaudio",
       "-x",
@@ -62,6 +69,7 @@ function buildArgs(
   const height = MP4_HEIGHT_MAP[quality] ?? 1080;
   return [
     "--no-playlist",
+    ...YOUTUBE_CLIENT_ARGS,
     "-f",
     `bv*[vcodec^=avc1][height<=?${height}]+ba[ext=m4a]/b[vcodec^=avc1][height<=?${height}]/best[height<=?${height}]`,
     "--merge-output-format",
